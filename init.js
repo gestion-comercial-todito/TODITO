@@ -1,17 +1,23 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+/*****************************************************
+ * init.js
+ * Inicialización de la base en Realtime Database
+ *****************************************************/
+(() => {
+  const ramasIniciales = {
+    config: { shopName: "SUPERCODE", passAdmin: "0123456789", masterPass: "9999" },
+    cajeros: {},
+    stock: {},
+    movimientos: {},
+    historial: {}
+  };
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyBAo5MFidQ23UwQqTPhxHVzRKaZVoxmvj0",
-  authDomain: "gestion-toditoctes.firebaseapp.com",
-  projectId: "gestion-toditoctes",
-  storageBucket: "gestion-toditoctes.firebasestorage.app",
-  messagingSenderId: "549059339665",
-  appId: "1:549059339665:web:3387d4f7eeed5470e66630"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+  (async () => {
+    const rootSnap = await window.get(window.ref(window.db, "/"));
+    if (!rootSnap.exists() || rootSnap.val() === null) {
+      await window.set(window.ref(window.db, "/"), ramasIniciales);
+      console.log("✅ Base inicializada en Firebase");
+    } else {
+      console.log("ℹ️ Base ya existente, no se sobrescribió");
+    }
+  })();
+})();
