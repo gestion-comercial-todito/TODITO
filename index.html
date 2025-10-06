@@ -143,26 +143,28 @@
   <div id="modal-overlay" class="modal hidden"></div>
 
   <!-- Scripts -->
-  <script>
-    const firebaseConfig = {
-      apiKey: "YOUR-API-KEY",
-      authDomain: "supercode-ctes.firebaseapp.com",
-      databaseURL: "https://supercode-ctes-default-rtdb.firebaseio.com",
-      projectId: "supercode-ctes",
-      storageBucket: "supercode-ctes.appspot.com",
-      messagingSenderId: "000000000",
-      appId: "1:000000000:web:xxxx"
-    };
-    const app = firebase.initializeApp(firebaseConfig);
-    window.db = firebase.database();
-    window.ref = (db, path) => db.ref(path);
-    window.get = async ref => (await ref.get());
-    window.set = async (ref, val) => ref.set(val);
-    window.update = async (ref, val) => ref.update(val);
-    window.push = ref => ref.push();
-    window.remove = ref => ref.remove();
-    window.onValue = (ref, cb) => ref.on("value", cb);
-  </script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBAo5MFidQ23UwQqTPhxHVzRKaZVoxmvj0",
+    authDomain: "gestion-toditoctes.firebaseapp.com",
+    databaseURL: "https://gestion-toditoctes-default-rtdb.firebaseio.com", <!-- 🔥 Esta es la línea que le faltaba al SDK modular -->
+    projectId: "gestion-toditoctes",
+    storageBucket: "gestion-toditoctes.firebasestorage.app",
+    messagingSenderId: "549059339665",
+    appId: "1:549059339665:web:3387d4f7eeed5470e66630"
+  };
+
+  const app = firebase.initializeApp(firebaseConfig);
+  window.db = firebase.database();
+  window.ref = (db, path) => db.ref(path);
+  window.get = async ref => (await ref.get());
+  window.set = async (ref, val) => ref.set(val);
+  window.update = async (ref, val) => ref.update(val);
+  window.push = ref => ref.push();
+  window.remove = ref => ref.remove();
+  window.onValue = (ref, cb) => ref.on("value", cb);
+</script>
+
   <script src="app.js"></script>
 </body>
 </html>
