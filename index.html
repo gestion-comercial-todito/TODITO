@@ -12,9 +12,9 @@
 <body>
   <header><img src="https://iili.io/KXkB2Ax.png" alt="ZONAPC" class="banner-img">
     <br>
-    <blockquote>﹒Ante problemas y fallos comunicate por whatsapp al 3794 576062‧</blockquote>
+    <blockquote>※Ante problemas y fallos comunicate por whatsapp al 3794 576062§</blockquote>
     <br>
-    <h1 id="app-title">ZONAPC - Gesti目n Comercial V2.8</h1>
+    <h1 id="app-title">ZONAPC - Gesti車n Comercial V2.8</h1>
     <nav>
       <button class="nav-btn" data-section="cobro">Cobrar</button>
       <button class="nav-btn" data-section="movimientos">Movimientos</button>
@@ -39,10 +39,10 @@
   <div id="cobro-controles" class="hidden">
    
     
-    <!-- Nuevo select de productos y bot目n OK -->
+    <!-- Nuevo select de productos y bot車n OK -->
     <div style="display:flex; gap:5px; align-items:center; margin-bottom:5px;">
        <select id="cobro-cantidad"></select>
-      <input id="cobro-codigo" placeholder="C目digo producto" style="flex:1;">
+      <input id="cobro-codigo" placeholder="C車digo producto" style="flex:1;">
       <select id="cobro-productos" style="flex:2;">
         <option value="">Elija un Item</option>
       </select>
@@ -52,7 +52,7 @@
     <table id="tabla-cobro">
       <thead>
         <tr>
-          <th>Cant</th><th>Producto</th><th>Precio Unidad</th><th>Total</th><th>Acci目n</th>
+          <th>Cant</th><th>Producto</th><th>Precio Unidad</th><th>Total</th><th>Acci車n</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -75,7 +75,7 @@
       <table id="tabla-movimientos">
         <thead>
           <tr>
-            <th>ID</th><th>Total</th><th>Tipo</th><th>Acci目n</th>
+            <th>ID</th><th>Total</th><th>Tipo</th><th>Acci車n</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -85,11 +85,11 @@
     <!-- HISTORIAL -->
     <section id="historial" class="hidden">
       <h2>Historial</h2>
-      <p id="historial-info">Aqu癶 se mostrar瓜n los movimientos mensuales. Se eliminan el d癶a 15 de cada mes.</p>
+      <p id="historial-info">Aqu赤 se mostrar芍n los movimientos mensuales. Se eliminan el d赤a 15 de cada mes.</p>
       <table id="tabla-historial">
         <thead>
           <tr>
-            <th>ID</th><th>Total</th><th>Tipo</th><th>Cajero</th><th>Fecha</th><th>Acci目n</th>
+            <th>ID</th><th>Total</th><th>Tipo</th><th>Cajero</th><th>Fecha</th><th>Acci車n</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -99,14 +99,14 @@
     <!-- STOCK -->
     <section id="stock" class="hidden">
       <h2>Stock</h2>
-      <input id="stock-codigo" placeholder="C目digo producto">
+      <input id="stock-codigo" placeholder="C車digo producto">
       <select id="stock-cantidad"></select>
       <button id="agregar-stock">?Agregar Stock?</button>
       <button id="buscar-stock">??Buscar</button>
       <table id="tabla-stock">
         <thead>
           <tr>
-            <th>C目digo</th><th>Nombre</th><th>Cant</th><th>Fecha</th><th>Precio</th><th>Acci目n</th>
+            <th>C車digo</th><th>Nombre</th><th>Cant</th><th>Fecha</th><th>Precio</th><th>Acci車n</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -124,7 +124,7 @@
       <table id="tabla-cajeros">
         <thead>
           <tr>
-            <th>Nro</th><th>Nombre</th><th>DNI</th><th>Acci目n</th>
+            <th>Nro</th><th>Nombre</th><th>DNI</th><th>Acci車n</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -133,9 +133,9 @@
 
     <!-- CONFIG -->
     <section id="config" class="hidden">
-      <h2>Configuraci目n</h2>
+      <h2>Configuraci車n</h2>
       
-      <p class="emoji">?? Nombre y Ubicaci目n, Ejemplo: 24/7 Reconquista 1234, Ctes</p><br><input id="config-nombre" placeholder="Nombre de Tienda">
+      <p class="emoji">?? Nombre y Ubicaci車n, Ejemplo: 24/7 Reconquista 1234, Ctes</p><br><input id="config-nombre" placeholder="Nombre de Tienda">
       
       <div id="admin-pass-config">
         <input id="config-pass-actual" type="password" placeholder="Contrase?a actual">
@@ -151,28 +151,26 @@
   </main>
 
   <!-- Scripts -->
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyBAo5MFidQ23UwQqTPhxHVzRKaZVoxmvj0",
-    authDomain: "gestion-toditoctes.firebaseapp.com",
-    databaseURL: "https://gestion-toditoctes-default-rtdb.firebaseio.com",
-    projectId: "gestion-toditoctes",
-    storageBucket: "gestion-toditoctes.firebasestorage.app",
-    messagingSenderId: "549059339665",
-    appId: "1:549059339665:web:3387d4f7eeed5470e66630"
-  };
-
-  const app = firebase.initializeApp(firebaseConfig);
-  window.db = firebase.database();
-  window.ref = (db, path) => db.ref(path);
-  window.get = async ref => (await ref.get());
-  window.set = async (ref, val) => ref.set(val);
-  window.update = async (ref, val) => ref.update(val);
-  window.push = ref => ref.push();
-  window.remove = ref => ref.remove();
-  window.onValue = (ref, cb) => ref.on("value", cb);
-</script>
-
+  <script>
+    const firebaseConfig = {
+      apiKey: "YOUR-API-KEY",
+      authDomain: "supercode-ctes.firebaseapp.com",
+      databaseURL: "https://supercode-ctes-default-rtdb.firebaseio.com",
+      projectId: "supercode-ctes",
+      storageBucket: "supercode-ctes.appspot.com",
+      messagingSenderId: "000000000",
+      appId: "1:000000000:web:xxxx"
+    };
+    const app = firebase.initializeApp(firebaseConfig);
+    window.db = firebase.database();
+    window.ref = (db, path) => db.ref(path);
+    window.get = async ref => (await ref.get());
+    window.set = async (ref, val) => ref.set(val);
+    window.update = async (ref, val) => ref.update(val);
+    window.push = ref => ref.push();
+    window.remove = ref => ref.remove();
+    window.onValue = (ref, cb) => ref.on("value", cb);
+  </script>
   <script src="app.js"></script>
 </body>
 </html>
