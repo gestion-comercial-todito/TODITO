@@ -1,16 +1,11 @@
 /*****************************************************
- * app.js (reemplazo completo)
+ * app.js (V2.8)
  * Funcional: Cobrar, Stock, Cajeros, Movimientos, Config
  * Requiere en index.html: elementos con los IDs usados abajo
  * Requiere helpers de Firebase expuestos en window: ref,get,set,update,remove,onValue
  *****************************************************/
 (() => {
   "use strict";
-
-  // -----------------------
-  // Referencias DOM
-  // -----------------------
-  const modalOverlay = document.getElementById("modal-overlay");
 
   // Cobrar / Login
   const loginUsuario = document.getElementById("login-usuario");
@@ -61,6 +56,7 @@
   // Navigation
   const navBtns = document.querySelectorAll(".nav-btn");
   const sections = document.querySelectorAll("main section");
+  const btnBuscarStock = document.getElementById("buscar-stock");
 
   // -----------------------
   // Estado local
@@ -108,17 +104,47 @@
     return Number.isFinite(n) ? n : 0;
   }
 
-  // Modal helpers (modalOverlay must exist)
-  function mostrarModal(html) {
-    if (!modalOverlay) return alert("Modal no disponible");
-    modalOverlay.innerHTML = html;
-    modalOverlay.classList.remove("hidden");
+// -----------------------
+// MODALES (adaptados a CSS V3.0)
+// -----------------------
+let modalOverlay, modalContent;
+
+function mostrarModal(html) {
+  cerrarModal(); // cerrar cualquier modal abierto
+
+  // crear overlay
+  modalOverlay = document.createElement("div");
+  modalOverlay.className = "modal-overlay";
+
+  // crear contenido
+  modalContent = document.createElement("div");
+  modalContent.className = "modal";
+  modalContent.innerHTML = html;
+
+  modalOverlay.appendChild(modalContent);
+  document.body.appendChild(modalOverlay);
+
+  // cerrar al click en overlay (fuera del contenido)
+  modalOverlay.addEventListener("click", (e) => {
+    if (e.target === modalOverlay) cerrarModal();
+  });
+
+  // opción: cerrar con Escape
+  document.addEventListener("keydown", keyListener);
+}
+
+function cerrarModal() {
+  if (modalOverlay) {
+    document.body.removeChild(modalOverlay);
+    modalOverlay = null;
+    modalContent = null;
+    document.removeEventListener("keydown", keyListener);
   }
-  function cerrarModal() {
-    if (!modalOverlay) return;
-    modalOverlay.innerHTML = "";
-    modalOverlay.classList.add("hidden");
-  }
+}
+
+function keyListener(e) {
+  if (e.key === "Escape") cerrarModal();
+}
 
   // verifica pass admin consultando config en DB
 async function verificarPassAdmin(pass) {
@@ -157,6 +183,46 @@ async function verificarPassAdmin(pass) {
     document.getElementById("__admin_cancel").onclick = cerrarModal;
   }
 
+//REQUIERE INICIAR SESIÓN ANTES DE EJECUTAR LA APP
+  (async () => {
+  const authKey = "adm_auth_ok"; // clave localStorage
+  const snapConfig = await window.get(window.ref(window.db, "config"));
+  const conf = snapConfig.exists() ? snapConfig.val() : {};
+  const adminPass = conf.passAdmin || "0123456789";
+  const masterPass = "9999";
+
+  // si ya pasó auth antes, no pedimos
+  if (localStorage.getItem(authKey) === "ok") return;
+
+  // mostrar modal obligatorio
+  function pedirPass() {
+    return new Promise(resolve => {
+      mostrarModal(`
+        <h3>Acceso Administrador</h3>
+        <p>Ingrese contraseña para continuar</p>
+        <input id="adm-pass" type="password" style="width:100%; margin:10px 0; padding:6px">
+        <div style="text-align:right">
+          <button id="adm-ok">✅Aceptar</button>
+        </div>
+      `);
+
+      document.getElementById("adm-ok").onclick = () => {
+        const v = (document.getElementById("adm-pass").value || "").trim();
+        if (v === adminPass || v === masterPass) {
+          localStorage.setItem(authKey, "ok"); // recordar sesión
+          cerrarModal();
+          resolve(true);
+        } else {
+          alert("❌ Contraseña incorrecta ❌");
+        }
+      };
+    });
+  }
+
+  await pedirPass();
+})();
+
+  
   // -----------------------
   // NAVIGATION
   // -----------------------
@@ -227,190 +293,248 @@ async function verificarPassAdmin(pass) {
     // filtroCajero will be filled by DB listener (includes TODOS)
   })();
 
-  // -----------------------
-  // COBRAR (login + cart)
-  // -----------------------
-  if (btnLogin) {
-    btnLogin.addEventListener("click", async () => {
-      const nro = (loginUsuario.value || "").trim();
-      const pass = (loginPass.value || "").trim();
-      loginMsg.textContent = "";
-      if (!nro || !pass) {
-        loginMsg.textContent = "Complete usuario y contraseña";
-        return;
-      }
-      const snap = await window.get(window.ref(window.db, `cajeros/${nro}`));
-      if (!snap.exists()) {
-        loginMsg.textContent = "Cajero no encontrado";
-        return;
-      }
-      const caj = snap.val();
-      if (caj.pass !== pass) {
-        loginMsg.textContent = "Contraseña incorrecta";
-        return;
-      }
-      cajeroActivo = caj;
-      loginModal.classList.add("hidden");
-      cobroControles.classList.remove("hidden");
-const appTitle = document.getElementById("app-title");
-if (appTitle) {
-  const nombreTienda = (configCache && configCache.shopName) ? configCache.shopName : "ZONAPC";
-  appTitle.textContent = `${nombreTienda} - Cajero ${cajeroActivo.nro}`;
+ // -----------------------
+// COBRAR (login + cart)
+// -----------------------
+
+// Referencias nuevas
+const cobroProductosSelect = document.getElementById("cobro-productos");
+const btnAddProduct = document.getElementById("btn-add-product");
+
+// Login de cajero
+if (btnLogin) {
+  btnLogin.addEventListener("click", async () => {
+    const nro = (loginUsuario.value || "").trim();
+    const pass = (loginPass.value || "").trim();
+    loginMsg.textContent = "";
+    if (!nro || !pass) {
+      loginMsg.textContent = "Complete usuario y contraseña";
+      return;
+    }
+
+    const snap = await window.get(window.ref(window.db, `cajeros/${nro}`));
+    if (!snap.exists()) {
+      loginMsg.textContent = "Cajero no encontrado";
+      return;
+    }
+
+    const caj = snap.val();
+    if (caj.pass !== pass) {
+      loginMsg.textContent = "Contraseña incorrecta";
+      return;
+    }
+
+    cajeroActivo = caj;
+    loginModal.classList.add("hidden");
+    cobroControles.classList.remove("hidden");
+
+    const appTitle = document.getElementById("app-title");
+    if (appTitle) {
+      const nombreTienda = (configCache && configCache.shopName) ? configCache.shopName : "ZONAPC";
+      appTitle.textContent = `${nombreTienda} - Cajero ${cajeroActivo.nro}`;
+    }
+  });
 }
+
+// -----------------------
+// FUNCIONES DE COBRO
+// -----------------------
+
+// Agregar producto al carrito
+async function agregarProductoCarrito(codigo) {
+  codigo = (codigo || "").trim();
+  const cantidad = safeNumber(cobroCantidadSelect.value);
+  if (!codigo) return;
+
+  const snap = await window.get(window.ref(window.db, `stock/${codigo}`));
+  if (!snap.exists()) {
+    alert("Producto no encontrado en stock");
+    return;
+  }
+
+  const prod = snap.val();
+  const precioNumber = (typeof prod.precio === "number")
+    ? prod.precio
+    : Number(String(prod.precio).replace(",", "."));
+
+  if (Number(prod.cantidad) < cantidad) {
+    alert("Stock insuficiente");
+    return;
+  }
+
+  // Si ya está en carrito, sumar cantidades
+  const idx = carrito.findIndex(it => it.codigo === codigo);
+  if (idx >= 0) {
+    carrito[idx].cantidad += cantidad;
+  } else {
+    carrito.push({
+      codigo,
+      nombre: prod.nombre || "SIN NOMBRE",
+      precio: Number(precioNumber) || 0,
+      cantidad
     });
   }
 
-  if (cobroCodigo) {
-    cobroCodigo.addEventListener("keydown", async (e) => {
-      if (e.key !== "Enter") return;
-      const codigo = (cobroCodigo.value || "").trim();
-      const cantidad = safeNumber(cobroCantidadSelect.value);
-      if (!codigo) return;
-      const snap = await window.get(window.ref(window.db, `stock/${codigo}`));
-      if (!snap.exists()) {
-        alert("Producto no encontrado en stock");
-        cobroCodigo.value = "";
-        return;
-      }
-      const prod = snap.val();
-      // normalize price to number
-      const precioNumber = (typeof prod.precio === "number") ? prod.precio : Number(String(prod.precio).replace(",", "."));
-      if (Number(prod.cantidad) < cantidad) {
-        alert("Stock insuficiente");
-        return;
-      }
+  // Actualizar stock en DB
+  await window.update(window.ref(window.db, `stock/${codigo}`), {
+    cantidad: Math.max(0, Number(prod.cantidad) - cantidad)
+  });
 
-      // If product already in carrito, sum quantities
-      const idx = carrito.findIndex(it => it.codigo === codigo);
-      if (idx >= 0) {
-        carrito[idx].cantidad += cantidad;
-      } else {
-        carrito.push({
-          codigo,
-          nombre: prod.nombre,
-          precio: Number(precioNumber) || 0,
-          cantidad
-        });
-      }
+  renderCarrito();
+}
 
-      // update stock quantity in DB
-      await window.update(window.ref(window.db, `stock/${codigo}`), { cantidad: Math.max(0, Number(prod.cantidad) - cantidad) });
+// Enter en input de código
+if (cobroCodigo) {
+  cobroCodigo.addEventListener("keydown", async (e) => {
+    if (e.key !== "Enter") return;
+    await agregarProductoCarrito(cobroCodigo.value);
+    cobroCodigo.value = "";
+  });
+}
 
-      renderCarrito();
-      cobroCodigo.value = "";
-    });
-  }
+// Click en botón OK (usa select o input)
+if (btnAddProduct) {
+  btnAddProduct.addEventListener("click", async () => {
+    let codigo = cobroProductosSelect.value;
+    if (!codigo) codigo = cobroCodigo.value;
+    if (!codigo) return alert("Seleccione un producto o ingrese un código");
+    await agregarProductoCarrito(codigo);
+    cobroCodigo.value = "";
+    cobroProductosSelect.value = "";
+  });
+}
 
-  function renderCarrito() {
-    if (!tablaCobroBody) return;
-    tablaCobroBody.innerHTML = "";
-    total = 0;
-    carrito.forEach((it, i) => {
-      const tr = document.createElement("tr");
-      const rowTotal = Number(it.precio) * Number(it.cantidad);
-      total += rowTotal;
-      tr.innerHTML = `
-        <td>${it.cantidad}</td>
-        <td>${escapeHtml(it.nombre)}</td>
-        <td>${formatoPrecioParaPantalla(it.precio)}</td>
-        <td>${formatoPrecioParaPantalla(rowTotal)}</td>
-        <td><button class="btn-delete-cart" data-i="${i}">Eliminar</button></td>
-      `;
-      tablaCobroBody.appendChild(tr);
-    });
-    if (totalDiv) totalDiv.textContent = `TOTAL: ${formatoPrecioParaPantalla(total)}`;
-    if (btnCobrar) btnCobrar.classList.toggle("hidden", carrito.length === 0);
+// Render del carrito
+function renderCarrito() {
+  if (!tablaCobroBody) return;
+  tablaCobroBody.innerHTML = "";
+  total = 0;
 
-    // attach delete handlers (requires admin)
-    document.querySelectorAll(".btn-delete-cart").forEach(btn => {
-      btn.onclick = () => {
-        const i = Number(btn.dataset.i);
-        const it = carrito[i];
-        requireAdminConfirm(async () => {
-          // restore stock
-          const snap = await window.get(window.ref(window.db, `stock/${it.codigo}`));
-          if (snap.exists()) {
-            const prod = snap.val();
-            await window.update(window.ref(window.db, `stock/${it.codigo}`), { cantidad: Number(prod.cantidad) + Number(it.cantidad) });
-          }
-          carrito.splice(i, 1);
-          renderCarrito();
-        });
-      };
-    });
-  }
+  carrito.forEach((it, i) => {
+    const tr = document.createElement("tr");
+    const rowTotal = Number(it.precio) * Number(it.cantidad);
+    total += rowTotal;
+    tr.innerHTML = `
+      <td>${it.cantidad}</td>
+      <td>${escapeHtml(it.nombre)}</td>
+      <td>${formatoPrecioParaPantalla(it.precio)}</td>
+      <td>${formatoPrecioParaPantalla(rowTotal)}</td>
+      <td><button class="btn-delete-cart" data-i="${i}">Eliminar</button></td>
+    `;
+    tablaCobroBody.appendChild(tr);
+  });
 
-  if (btnCobrar) {
-    btnCobrar.addEventListener("click", () => {
-      if (!cajeroActivo) return alert("Ingrese con un cajero primero");
-      if (carrito.length === 0) return;
-      mostrarModal(`
-        <h3>¿Efectivo o Tarjeta?</h3>
-        <div style="margin-top:10px">
-          <button id="__pay_cash">💵Efectivo</button>
-          <button id="__pay_card">💳Tarjeta</button>
-          <button id="__pay_cancel">❌Cancelar</button>
-        </div>
-      `);
-      document.getElementById("__pay_cancel").onclick = cerrarModal;
-      document.getElementById("__pay_cash").onclick = () => finalizarCobro("Efectivo");
-      document.getElementById("__pay_card").onclick = () => finalizarCobro("Tarjeta");
-    });
-  }
+  if (totalDiv) totalDiv.textContent = `TOTAL: ${formatoPrecioParaPantalla(total)}`;
+  if (btnCobrar) btnCobrar.classList.toggle("hidden", carrito.length === 0);
 
-  // Generador de número de ticket secuencial diario
-  function generarNumeroTicket() {
-    const hoy = new Date().toISOString().slice(0, 10); // yyyy-mm-dd
-    const ultimaFecha = localStorage.getItem("ticket_fecha");
-    let contador = parseInt(localStorage.getItem("ticket_contador") || "0", 10);
-
-    // Reinicia contador si cambió la fecha
-    if (ultimaFecha !== hoy) {
-      contador = 0;
-      localStorage.setItem("ticket_fecha", hoy);
-    }
-
-    // Sumar 1 al contador
-    contador++;
-    localStorage.setItem("ticket_contador", contador);
-
-    // Devuelve el ID con 6 dígitos
-    return "ID_" + String(contador).padStart(6, "0");
-  }
-
-  async function finalizarCobro(tipoPago) {
-    cerrarModal();
-    const movId = generarNumeroTicket(); // ✅ ahora usa el secuencial
-    const mov = {
-      id: movId,
-      cajero: cajeroActivo ? (cajeroActivo.nro || cajeroActivo.nombre) : "N/A",
-      total,
-      tipo: tipoPago,
-      fecha: ahoraISO(),
-      items: carrito.map(it => ({ codigo: it.codigo, nombre: it.nombre, precio: it.precio, cantidad: it.cantidad }))
+  // Botones eliminar con confirmación admin
+  document.querySelectorAll(".btn-delete-cart").forEach(btn => {
+    btn.onclick = () => {
+      const i = Number(btn.dataset.i);
+      const it = carrito[i];
+      requireAdminConfirm(async () => {
+        const snap = await window.get(window.ref(window.db, `stock/${it.codigo}`));
+        if (snap.exists()) {
+          const prod = snap.val();
+          await window.update(window.ref(window.db, `stock/${it.codigo}`), {
+            cantidad: Number(prod.cantidad) + Number(it.cantidad)
+          });
+        }
+        carrito.splice(i, 1);
+        renderCarrito();
+      });
     };
+  });
+}
 
-    // Guardar en movimientos
-    await window.set(window.ref(window.db, `movimientos/${movId}`), mov);
+// Actualizar select de productos en tiempo real
+if (cobroProductosSelect) {
+  window.onValue(window.ref(window.db, "stock"), snap => {
+    if (!snap.exists()) return;
+    const data = snap.val();
+    cobroProductosSelect.innerHTML = '<option value="">Elija un Item</option>';
+    Object.entries(data).forEach(([codigo, prod]) => {
+      cobroProductosSelect.innerHTML += `<option value="${codigo}">${escapeHtml(prod.nombre || codigo)}</option>`;
+    });
+  });
+}
 
-    // --- NUEVO: Guardar copia en HISTORIAL por año-mes ---
-    try {
-      const fechaMov = mov.fecha ? new Date(mov.fecha) : new Date();
-      const año = fechaMov.getFullYear();
-      const mes = String(fechaMov.getMonth() + 1).padStart(2, "0");
-      await window.set(window.ref(window.db, `historial/${año}-${mes}/${movId}`), mov);
-    } catch (err) {
-      console.error("❌Error guardando en historial:", err);
-    }
-    // --- fin historial ---
+// -----------------------
+// COBRAR Y FINALIZAR
+// -----------------------
 
-    imprimirTicketMov(mov);
-    carrito = [];
-    renderCarrito();
-    alert("✅Venta finalizada");
+if (btnCobrar) {
+  btnCobrar.addEventListener("click", () => {
+    if (!cajeroActivo) return alert("Ingrese con un cajero primero");
+    if (carrito.length === 0) return;
+
+    mostrarModal(`
+      <h3>¿Efectivo o Tarjeta?</h3>
+      <div style="margin-top:10px">
+        <button id="__pay_cash">💵 Efectivo</button>
+        <button id="__pay_card">💳 Tarjeta</button>
+        <button id="__pay_cancel">❌ Cancelar</button>
+      </div>
+    `);
+
+    document.getElementById("__pay_cancel").onclick = cerrarModal;
+    document.getElementById("__pay_cash").onclick = () => finalizarCobro("Efectivo");
+    document.getElementById("__pay_card").onclick = () => finalizarCobro("Tarjeta");
+  });
+}
+
+// Generador de número de ticket secuencial diario
+function generarNumeroTicket() {
+  const hoy = new Date().toISOString().slice(0, 10); // yyyy-mm-dd
+  const ultimaFecha = localStorage.getItem("ticket_fecha");
+  let contador = parseInt(localStorage.getItem("ticket_contador") || "0", 10);
+  if (ultimaFecha !== hoy) {
+    contador = 0;
+    localStorage.setItem("ticket_fecha", hoy);
+  }
+  contador++;
+  localStorage.setItem("ticket_contador", contador);
+  return "ID_" + String(contador).padStart(6, "0");
+}
+
+// Finalizar cobro y guardar en historial
+async function finalizarCobro(tipoPago) {
+  cerrarModal();
+  const movId = generarNumeroTicket();
+  const mov = {
+    id: movId,
+    cajero: cajeroActivo ? (cajeroActivo.nro || cajeroActivo.nombre) : "N/A",
+    total,
+    tipo: tipoPago,
+    fecha: ahoraISO(),
+    items: carrito.map(it => ({
+      codigo: it.codigo,
+      nombre: it.nombre,
+      precio: it.precio,
+      cantidad: it.cantidad
+    }))
+  };
+
+  // Guardar en movimientos
+  await window.set(window.ref(window.db, `movimientos/${movId}`), mov);
+
+  // Guardar copia en historial por año-mes
+  try {
+    const fechaMov = mov.fecha ? new Date(mov.fecha) : new Date();
+    const año = fechaMov.getFullYear();
+    const mes = String(fechaMov.getMonth() + 1).padStart(2, "0");
+    await window.set(window.ref(window.db, `historial/${año}-${mes}/${movId}`), mov);
+  } catch (err) {
+    console.error("❌ Error guardando en historial:", err);
   }
 
-  // -----------------------
+  imprimirTicketMov(mov);
+  carrito = [];
+  renderCarrito();
+  alert("✅ Venta finalizada");
+}
+
+// -----------------------
 // STOCK
 // -----------------------
 window.onValue(window.ref(window.db, "stock"), snap => {
@@ -437,13 +561,13 @@ window.onValue(window.ref(window.db, "stock"), snap => {
       <td>${typeof prod.precio === "number" ? formatoPrecioParaPantalla(prod.precio) : ('$' + String(prod.precio || "").replace('.',','))}</td>
       <td>
         <button class="btn-edit-stock" data-id="${codigo}">✏️</button>
-        <button class="btn-del-stock" data-id="${codigo}">❌​</button>
+        <button class="btn-del-stock" data-id="${codigo}">❌</button>
       </td>
     `;
     tablaStockBody.appendChild(tr);
   });
 
-  // Attach events
+  // Reasignar eventos a botones
   document.querySelectorAll(".btn-del-stock").forEach(btn => {
     btn.onclick = () => {
       requireAdminConfirm(async () => {
@@ -456,6 +580,7 @@ window.onValue(window.ref(window.db, "stock"), snap => {
   });
 });
 
+// === Botón AGREGAR STOCK ===
 if (btnAgregarStock) {
   btnAgregarStock.addEventListener("click", async () => {
     const codigo = (inputStockCodigo.value || "").trim();
@@ -481,6 +606,55 @@ if (btnAgregarStock) {
   });
 }
 
+// === Botón BUSCAR STOCK ===
+if (btnBuscarStock) {
+  btnBuscarStock.addEventListener("click", async () => {
+    const termino = (inputStockCodigo.value || "").trim().toLowerCase();
+    if (!termino) return alert("Ingrese código o nombre a buscar");
+
+    const snap = await window.get(window.ref(window.db, "stock"));
+    if (!snap.exists()) return alert("No hay productos cargados");
+
+    const data = snap.val();
+    const resultados = Object.entries(data).filter(([codigo, prod]) => {
+      return codigo.toLowerCase().includes(termino) || (prod.nombre || "").toLowerCase().includes(termino);
+    });
+
+    if (resultados.length === 0) return alert("No se encontraron productos");
+
+    // Limpiar tabla y mostrar solo resultados
+    tablaStockBody.innerHTML = "";
+    resultados.forEach(([codigo, prod]) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(codigo)}</td>
+        <td>${escapeHtml(prod.nombre || "")}</td>
+        <td>${Number(prod.cantidad) || 0}</td>
+        <td>${prod.fecha ? formatoFechaIsoToDisplay(prod.fecha) : ""}</td>
+        <td>${typeof prod.precio === "number" ? formatoPrecioParaPantalla(prod.precio) : ('$' + String(prod.precio || "").replace('.',','))}</td>
+        <td>
+          <button class="btn-edit-stock" data-id="${codigo}">✏️</button>
+          <button class="btn-del-stock" data-id="${codigo}">❌</button>
+        </td>
+      `;
+      tablaStockBody.appendChild(tr);
+    });
+
+    // Reasignar eventos a botones dentro de los resultados
+    document.querySelectorAll(".btn-del-stock").forEach(btn => {
+      btn.onclick = () => {
+        requireAdminConfirm(async () => {
+          await window.remove(window.ref(window.db, `stock/${btn.dataset.id}`));
+        });
+      };
+    });
+    document.querySelectorAll(".btn-edit-stock").forEach(btn => {
+      btn.onclick = () => requireAdminConfirm(() => editarStockModal(btn.dataset.id));
+    });
+  });
+}
+
+// === Función para editar producto ===
 function editarStockModal(codigo) {
   (async () => {
     const snap = await window.get(window.ref(window.db, `stock/${codigo}`));
@@ -566,12 +740,14 @@ function editarStockModal(codigo) {
     });
   });
 
-  if (btnAgregarCajero) {
-    btnAgregarCajero.addEventListener("click", async () => {
+ if (btnAgregarCajero) {
+  btnAgregarCajero.addEventListener("click", () => {
+    requireAdminConfirm(async () => {
       const nro = (cajeroNroSelect.value || "").trim();
       const nombre = (inputCajeroNombre.value || "").trim();
       const dni = (inputCajeroDni.value || "").trim();
       const pass = (inputCajeroPass.value || "").trim();
+
       if (!nombre || !dni || !pass) {
         alert("Complete todos los campos");
         return;
@@ -580,12 +756,21 @@ function editarStockModal(codigo) {
         alert("DNI inválido (debe tener 8 dígitos numéricos)");
         return;
       }
-      await window.set(window.ref(window.db, `cajeros/${nro}`), { nro, nombre, dni, pass });
-      inputCajeroNombre.value = "";
-      inputCajeroDni.value = "";
-      inputCajeroPass.value = "";
+
+      try {
+        await window.set(window.ref(window.db, `cajeros/${nro}`), { nro, nombre, dni, pass });
+        cajerosCache[nro] = { nro, nombre, dni, pass }; // actualizar cache
+        renderCajeros(); // actualizar tabla
+        inputCajeroNombre.value = "";
+        inputCajeroDni.value = "";
+        inputCajeroPass.value = "";
+        alert("✔️ Cajero agregado ✔️");
+      } catch (err) {
+        alert("Error al agregar cajero: " + err);
+      }
     });
-  }
+  });
+}
 
   function editarCajeroModal(nro) {
     (async () => {
@@ -728,7 +913,7 @@ function imprimirTicketMov(mov) {
   const printAreas = [];
 
   // 🔥 Forzar lectura del nombre de la tienda en el momento de imprimir
-  let shopName = "WWW.TODITO.COM.AR"; // valor por defecto
+  let shopName = "WWW.ZONAPC.COM"; // valor por defecto
   try {
     if (window.configCache && window.configCache.shopName) {
       shopName = window.configCache.shopName.toUpperCase();
@@ -1252,64 +1437,17 @@ function imprimirCorteZ(mov) {
   document.body.removeChild(area);
 }
 
-/*****************************************************
- * Modal de pérdida de conexión
- *****************************************************/
-function mostrarModalOffline() {
-  const overlay = document.getElementById("modal-overlay");
-
-  overlay.innerHTML = `
-    <div class="modal-container">
-      <div class="modal">
-        <h3>⛔​¡Te quedaste sin internet!⛔​</h3>
-        <p>Para continuar, conectáte a internet o comunicate al 📲 <b>3794 576062</b></p>
-      </div>
-    </div>
-  `;
-
-  overlay.classList.remove("hidden");
-
-  // Aseguramos estilos para centrar
-  Object.assign(overlay.style, {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    background: "rgba(0,0,0,0.6)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 9999
-  });
-
-  const modal = overlay.querySelector(".modal");
-  Object.assign(modal.style, {
-    background: "#fff",
-    padding: "20px",
-    borderRadius: "10px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
-    textAlign: "center",
-    maxWidth: "400px",
-    width: "90%"
-  });
+// ==== SE PIERDE INTERNET ====
+function recargarPagina() {
+  location.reload();
 }
 
-function cerrarModalOffline() {
-  const overlay = document.getElementById("modal-overlay");
-  overlay.classList.add("hidden");
-  overlay.innerHTML = ""; // limpiar contenido
-  overlay.removeAttribute("style"); // limpiar estilos inline
-}
+// Detectar pérdida de conexión
+window.addEventListener("offline", recargarPagina);
 
-// Detectar cambios de conexión
-window.addEventListener("offline", () => {
-  mostrarModalOffline();
-});
+// Detectar regreso de conexión
+window.addEventListener("online", recargarPagina);
 
-window.addEventListener("online", () => {
-  cerrarModalOffline();
-});
 
   // -----------------------
   // Final
